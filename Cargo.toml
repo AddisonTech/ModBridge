@@ -1,0 +1,23 @@
+[package]
+name = "modbridge"
+version = "0.1.0"
+edition = "2021"
+description = "Modbus TCP utility -- poll, serve, log, and simulate"
+license = "MIT"
+authors = ["AddisonTech"]
+
+[[bin]]
+name = "modbridge"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-modbus = { version = "0.14", features = ["tcp"] }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+axum = "0.7"
+colored = "2"
+csv = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rand = { version = "0.8", features = ["small_rng"] }
