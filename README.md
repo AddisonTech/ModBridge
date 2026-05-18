@@ -20,11 +20,22 @@ After install, `modbridge` is available anywhere in your shell.
 
 ---
 
+## Register types
+
+| Range | Type | Function code |
+|---|---|---|
+| `40001-49999` | Holding registers | FC3 (read/write) |
+| `30001-39999` | Input registers | FC4 (read-only) |
+
+Pass whichever range matches your device to `--registers`. The simulator serves both FC3 and FC4 from the same register bank so either range works during local testing.
+
+---
+
 ## Commands
 
 ### `simulate` -- built-in fake Modbus server
 
-Start a local fake device with 100 holding registers (40001-40100) whose values random-walk every second. No real hardware needed.
+Start a local fake device with 100 registers (40001-40100 / 30001-30100) whose values random-walk every second. No real hardware needed.
 
 ```sh
 modbridge simulate
@@ -38,11 +49,57 @@ modbridge simulate
 
 Point any other command at `localhost` to test against it.
 
+#### Config file
+
+Override individual register behaviors with a TOML config file:
+
+```sh
+modbridge simulate --config sim.toml
+```
+
+**Example `sim.toml`:**
+
+```toml
+[[register]]
+address = 40001
+initial = 2500
+behavior = "sine"
+min = 1000
+max = 4000
+period = 30        # ticks (one tick per interval)
+
+[[register]]
+address = 40002
+initial = 0
+behavior = "counter"
+step = 10          # increment per tick
+
+[[register]]
+address = 40003
+initial = 3000
+behavior = "walk"
+delta = 100        # max random delta per tick
+
+[[register]]
+address = 40004
+initial = 1234
+behavior = "static"
+```
+
+Registers not listed in the config continue to random-walk. Available behaviors: `walk`, `static`, `counter`, `sine`.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--host` | `localhost` | Bind address |
+| `--port` | `502` | Bind port |
+| `--interval` | `1.0` | Walk interval in seconds |
+| `--config` | none | TOML config file for register behaviors |
+
 ---
 
 ### `poll` -- live terminal display
 
-Connects to a Modbus device and prints an updated register table on each interval.
+Connects to a Modbus device and prints an updated register table on each interval. Automatically reconnects if the device drops.
 
 ```sh
 modbridge poll --host 192.168.1.10 --registers 40001-40010 --interval 1
@@ -52,7 +109,7 @@ modbridge poll --host 192.168.1.10 --registers 40001-40010 --interval 1
 |---|---|---|
 | `--host` | required | Modbus device IP |
 | `--port` | `502` | Modbus TCP port |
-| `--registers` | required | Register range, e.g. `40001-40010` |
+| `--registers` | required | Register range, e.g. `40001-40010` or `30001-30010` |
 | `--interval` | `1.0` | Poll interval in seconds |
 | `--unit-id` | `1` | Modbus slave/unit ID |
 
@@ -60,7 +117,7 @@ modbridge poll --host 192.168.1.10 --registers 40001-40010 --interval 1
 
 ### `serve` -- REST API
 
-Polls a Modbus device in the background and exposes current register values over HTTP.
+Polls a Modbus device in the background and exposes current register values over HTTP. Automatically reconnects on connection loss.
 
 ```sh
 modbridge serve --host 192.168.1.10 --registers 40001-40100 --port 3000
@@ -100,7 +157,7 @@ GET /registers/{address}    returns a single register by Modbus address
 
 ### `log` -- CSV logging
 
-Writes a timestamped row of register values to a CSV file on every poll cycle until Ctrl+C.
+Writes a timestamped row of register values to a CSV file on every poll cycle until Ctrl+C. Automatically reconnects on connection loss.
 
 ```sh
 modbridge log --host 192.168.1.10 --registers 40001-40010 --output data.csv
@@ -155,8 +212,9 @@ curl http://localhost:3000/registers/40015
 ModBridge/
   src/
     main.rs          # CLI entry point
-    client.rs        # Modbus TCP client
+    client.rs        # Modbus TCP client (FC3 + FC4)
     simulator.rs     # Raw TCP Modbus server
+    sim_config.rs    # TOML config parser for simulate
     logger.rs        # CSV writing
     api.rs           # axum REST API
     display.rs       # Colored terminal output

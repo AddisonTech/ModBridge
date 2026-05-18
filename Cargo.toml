@@ -21,3 +21,4 @@ colored = "2"
 csv = "1"
 chrono = { version = "0.4", features = ["serde"] }
 rand = { version = "0.8", features = ["small_rng"] }
+toml = "0.8"

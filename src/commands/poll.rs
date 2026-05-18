@@ -1,5 +1,6 @@
 use crate::client::{BoxError, ModbusClient};
 use crate::display::print_table;
+use colored::Colorize;
 use tokio::time::{sleep, Duration};
 
 pub async fn run(
@@ -10,19 +11,26 @@ pub async fn run(
     interval: f64,
     unit_id: u8,
 ) -> Result<(), BoxError> {
-    let mut client = ModbusClient::connect(host, port, unit_id).await?;
     let duration = Duration::from_secs_f64(interval);
     loop {
-        match client.poll(start, count).await {
-            Ok(values) => {
-                // Clear terminal and reprint table
-                print!("\x1B[2J\x1B[H");
-                print_table(&values);
-            }
+        match ModbusClient::connect(host, port, unit_id).await {
+            Ok(mut client) => loop {
+                match client.poll(start, count).await {
+                    Ok(values) => {
+                        print!("\x1B[2J\x1B[H");
+                        print_table(&values);
+                    }
+                    Err(e) => {
+                        eprintln!("  poll error: {e} -- reconnecting");
+                        break;
+                    }
+                }
+                sleep(duration).await;
+            },
             Err(e) => {
-                eprintln!("  poll error: {e}");
+                eprintln!("  {}: {e} -- retrying in 2s", "connection failed".yellow());
+                sleep(Duration::from_secs(2)).await;
             }
         }
-        sleep(duration).await;
     }
 }

@@ -3,6 +3,7 @@ mod client;
 mod commands;
 mod display;
 mod logger;
+mod sim_config;
 mod simulator;
 
 use clap::{Parser, Subcommand};
@@ -92,6 +93,9 @@ enum Commands {
         /// Random-walk interval in seconds
         #[arg(long, default_value = "1.0")]
         interval: f64,
+        /// Optional TOML config file defining per-register behaviors
+        #[arg(long)]
+        config: Option<std::path::PathBuf>,
     },
 }
 
@@ -149,6 +153,7 @@ async fn run(cli: Cli) -> Result<(), client::BoxError> {
             host,
             port,
             interval,
-        } => commands::simulate::run(&host, port, interval).await,
+            config,
+        } => commands::simulate::run(&host, port, interval, config).await,
     }
 }
